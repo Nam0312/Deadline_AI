@@ -1,6 +1,6 @@
 #include<stdio.h>
-#include<math.h>
 #include<stdlib.h>
+#include<math.h>
 #define Cols 3
 #define Rows 3
 #define EMPTY 0
@@ -100,6 +100,13 @@ int callOPerators(State state, State *result, int opt){
 		default : return 0;		
 	}
 }
+typedef struct Node{
+	State state;
+	struct Node *parent;
+	int no_function;
+	int f,g,h;
+}Node;
+
 int heuristic(State state, State goal){
 	int row,col, count =0;
 	for(row = 0; row<Rows;row++)
@@ -129,14 +136,6 @@ int heuristic2(State state, State goal){
 	}
 	return count;
 }
-
-typedef struct Node{
-	State state;
-	struct Node* parent;
-	int no_function;
-	int heuristic;
-}Node;
-
 typedef struct{
 	Node* Element[MaxLength];
 	int size;
@@ -190,27 +189,29 @@ void sort_List(List *list){
 	int i,j;
 	for(i=0;i<list->size;i++)
 		for(j=i+1;j<list->size;j++)
-			if(list->Element[i]->heuristic>list->Element[j]->heuristic){
+			if(list->Element[i]->f>list->Element[j]->f){
 				Node* node = list->Element[i];
 				list->Element[i] = list->Element[j];
 				list->Element[j] = node;
 			}
 }
-Node* best_fs(State state, State goal){
-	List Open_BFS;
-	List Close_BFS;
-	makenull(&Open_BFS);
-	makenull(&Close_BFS);
+
+Node* A_star(State state, State goal){
+	List Open_A_Star, Close_A_Star;
+	makenull(&Open_A_Star);
+	makenull(&Close_A_Star);
 	Node* root = (Node*)malloc(sizeof(Node));
 	root->state = state;
 	root->parent = NULL;
 	root->no_function = 0;
-	root->heuristic = heuristic2(root->state, goal);
-	pushList(root, Open_BFS.size+1, &Open_BFS);
-	while(!empty(Open_BFS)){
-		Node* node = element_at(1, Open_BFS);
-		delete_list(1, &Open_BFS);
-		pushList(node, Close_BFS.size+1, &Close_BFS);
+	root->g = 0;
+	root->h = heuristic2(root->state, goal);
+	root->f = root->g + root->h;
+	pushList(root,Open_A_Star.size+1, &Open_A_Star);
+	while(!empty(Open_A_Star)){
+		Node* node = element_at(1, Open_A_Star);
+		delete_list(1,&Open_A_Star);
+		pushList(node, Close_A_Star.size+1, &Close_A_Star);
 		if(goal_check(node->state, goal))
 			return node;
 		int opt;
@@ -222,28 +223,30 @@ Node* best_fs(State state, State goal){
 				newnode->state = newstate;
 				newnode->parent = node;
 				newnode->no_function = opt;
-				newnode->heuristic = heuristic2(newstate, goal);
+				newnode->g = newnode->g+1;
+				newnode->h = heuristic2(newstate, goal);
+				newnode->f = newnode->g + newnode->h;
 				int pos_Open, pos_Close;
-				Node* nodeFoundOpen = find_state(newstate, Open_BFS, &pos_Open);
-				Node* nodeFoundClose= find_state(newstate, Close_BFS, &pos_Close);
+				Node* nodeFoundOpen = find_state(newstate, Open_A_Star, &pos_Open);
+				Node* nodeFoundClose= find_state(newstate, Close_A_Star, &pos_Close);
 				if(nodeFoundOpen==NULL && nodeFoundClose==NULL){
-					pushList(newnode, Open_BFS.size+1, &Open_BFS);
+					pushList(newnode, Open_A_Star.size+1, &Open_A_Star);
 				}
-				else if(nodeFoundOpen!=NULL && nodeFoundOpen->heuristic > newnode->heuristic){
-					delete_list(pos_Open, &Open_BFS);
-					pushList(newnode, pos_Open, &Open_BFS);
+				else if(nodeFoundOpen!=NULL && nodeFoundOpen->g > newnode->g){
+					delete_list(pos_Open, &Open_A_Star);
+					pushList(newnode, pos_Open, &Open_A_Star);
 				}
-				else if(nodeFoundClose!=NULL && nodeFoundClose->heuristic > newnode->heuristic){
-					delete_list(pos_Close, &Close_BFS);
-					pushList(newnode, Open_BFS.size+1, &Open_BFS);
+				else if(nodeFoundClose!=NULL && nodeFoundClose->g > newnode->g){
+					delete_list(pos_Close, &Close_A_Star);
+					pushList(newnode, Open_A_Star.size+1, &Open_A_Star);
 				}
-				
 			}
 		}
-		sort_List(&Open_BFS);
+		sort_List(&Open_A_Star);
 	}
 	return NULL;
 }
+
 void print_WayToGetGoal(Node* node){
 	List listprint;
 	makenull(&listprint);
@@ -263,42 +266,28 @@ int main(){
 	State state;
 	state.emptyCol = 1;
 	state.emptyRow = 1;
-	state.EightPuzzel[0][0] = 3;
-	state.EightPuzzel[0][1] = 4;
-	state.EightPuzzel[0][2] = 5;
-	state.EightPuzzel[1][0] = 1;
+	state.EightPuzzel[0][0] = 1;
+	state.EightPuzzel[0][1] = 2;
+	state.EightPuzzel[0][2] = 3;
+	state.EightPuzzel[1][0] = 8;
 	state.EightPuzzel[1][1] = 0;
-	state.EightPuzzel[1][2] = 2;
-	state.EightPuzzel[2][0] = 6;
-	state.EightPuzzel[2][1] = 7;
-	state.EightPuzzel[2][2] = 8;	
+	state.EightPuzzel[1][2] = 4;
+	state.EightPuzzel[2][0] = 7;
+	state.EightPuzzel[2][1] = 6;
+	state.EightPuzzel[2][2] = 5;	
 	State goal;
 	goal.emptyCol = 0;
-	goal.emptyRow = 0;
-	goal.EightPuzzel[0][0] = 0;
-	goal.EightPuzzel[0][1] = 1;
-	goal.EightPuzzel[0][2] = 2;
-	goal.EightPuzzel[1][0] = 3;
+	goal.emptyRow = 1;
+	goal.EightPuzzel[0][0] = 2;
+	goal.EightPuzzel[0][1] = 8;
+	goal.EightPuzzel[0][2] = 1;
+	goal.EightPuzzel[1][0] = 0;
 	goal.EightPuzzel[1][1] = 4;
-	goal.EightPuzzel[1][2] = 5;
-	goal.EightPuzzel[2][0] = 6;
-	goal.EightPuzzel[2][1] = 7;
-	goal.EightPuzzel[2][2] = 8;
-	Node* p = best_fs(state, goal);
-	print_WayToGetGoal(p);
-//printf("in trang thai bat dau");
-//	Print_state(state);
-//	int opt;
-//	for(opt =1; opt<=4;opt++){
-//		callOPerators(state, &result, opt);
-//		if(!compareState(state, result)){
-//			printf("hanh dong %s thanh cong\n", Action[opt]);
-//			Print_state(result);
-//		}
-//		else{
-//			printf("hanh dong %s khong thanh cong", Action[opt]);
-//		}
-//	}
-//		
+	goal.EightPuzzel[1][2] = 3;
+	goal.EightPuzzel[2][0] = 7;
+	goal.EightPuzzel[2][1] = 6;
+	goal.EightPuzzel[2][2] = 5;
+	Node* p = A_star(state, goal);
+	print_WayToGetGoal(p);		
 	return 0;
 }
